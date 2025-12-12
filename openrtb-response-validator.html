@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenRTB Bid Response Validator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: { extend: {} }
+    }
+  </script>
+  <style>
+    body { background: #030712; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #1f2937; border-radius: 3px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+  </style>
+</head>
+<body class="dark">
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useRef, useEffect } = React;
+
+    // Icons
+    const CheckCircle = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    );
+    const XCircle = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+    );
+    const AlertTriangle = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    );
+    const ChevronDown = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="6 9 12 15 18 9"/></svg>
+    );
+    const ChevronRight = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="9 18 15 12 9 6"/></svg>
+    );
+    const FileJson = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+    );
+    const Code = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+    );
+    const Info = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    );
+    const Play = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    );
+    const Pause = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+    );
+    const Volume2 = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+    );
+    const VolumeX = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+    );
+    const RotateCcw = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+    );
+
+    // OpenRTB Spec
+    const OPENRTB_SPEC = {
+      response: { required: ['id', 'seatbid'], optional: ['bidid', 'cur', 'customdata', 'nbr', 'ext'] },
+      seatbid: { required: ['bid'], optional: ['seat', 'group', 'ext'] },
+      bid: {
+        required: ['id', 'impid', 'price'],
+        optional: ['nurl', 'burl', 'lurl', 'adm', 'adid', 'adomain', 'bundle', 'iurl', 'cid', 'crid', 'tactic', 'cat', 'attr', 'api', 'protocol', 'qagmediarating', 'language', 'langb', 'dealid', 'w', 'h', 'wratio', 'hratio', 'exp', 'dur', 'mtype', 'slotinpod', 'apis', 'ext']
+      }
+    };
+
+    const NATIVE_SPEC = {
+      '1.2': {
+        native: { required: ['assets'], optional: ['link', 'imptrackers', 'jstracker', 'eventtrackers', 'privacy', 'ext', 'ver'] },
+        asset: { required: ['id'], optional: ['required', 'title', 'img', 'video', 'data', 'link', 'ext'] },
+        title: { required: ['text'], optional: ['len', 'ext'] },
+        img: { required: ['url'], optional: ['w', 'h', 'type', 'ext'] },
+        data: { required: ['value'], optional: ['label', 'type', 'ext'] },
+        link: { required: ['url'], optional: ['clicktrackers', 'fallback', 'ext'] },
+      }
+    };
+
+    const KNOWN_EXTENSIONS = {
+      skadn: 'SKAdNetwork attribution data for iOS',
+      dsa: 'Digital Services Act transparency info',
+      schain: 'Supply chain object',
+      prebid: 'Prebid.js specific extensions',
+    };
+
+    function detectAdmType(adm) {
+      if (!adm || typeof adm !== 'string') return null;
+      const trimmed = adm.trim();
+      if (trimmed.startsWith('<?xml') || trimmed.startsWith('<VAST') || trimmed.startsWith('<vast')) return 'VAST';
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed.native || parsed.assets) return 'NATIVE';
+      } catch {}
+      if (/<\s*(html|div|script|img|a|span|iframe)/i.test(trimmed)) return 'HTML';
+      return 'UNKNOWN';
+    }
+
+    function validateVast(adm) {
+      const results = { errors: [], warnings: [], info: [], version: null };
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(adm, 'text/xml');
+        const parseError = doc.querySelector('parsererror');
+        if (parseError) { results.errors.push('Invalid XML'); return results; }
+        const vast = doc.querySelector('VAST');
+        if (!vast) { results.errors.push('Missing <VAST> root element'); return results; }
+        results.version = vast.getAttribute('version');
+        if (!results.version) results.warnings.push('Missing version attribute');
+        const ad = doc.querySelector('Ad');
+        if (!ad) results.errors.push('Missing <Ad> element');
+        const inline = doc.querySelector('InLine');
+        const wrapper = doc.querySelector('Wrapper');
+        if (!inline && !wrapper) results.errors.push('Missing <InLine> or <Wrapper>');
+        if (inline) {
+          if (!doc.querySelector('AdSystem')) results.errors.push('Missing <AdSystem>');
+          if (!doc.querySelector('Impression')) results.errors.push('Missing <Impression>');
+          if (!doc.querySelector('Creatives')) results.errors.push('Missing <Creatives>');
+        }
+        if (doc.querySelector('Linear') && !doc.querySelector('MediaFiles')) results.errors.push('Linear missing <MediaFiles>');
+        results.info.push(`VAST ${results.version || '?'} ${inline ? 'InLine' : 'Wrapper'}`);
+      } catch (e) { results.errors.push('Parse error: ' + e.message); }
+      return results;
+    }
+
+    function validateNative(adm) {
+      const results = { errors: [], warnings: [], info: [], version: null, unknownFields: [] };
+      try {
+        let parsed = typeof adm === 'string' ? JSON.parse(adm) : adm;
+        let native = parsed.native || parsed;
+        results.version = native.ver || '1.0';
+        if (!native.assets || !Array.isArray(native.assets)) results.errors.push('Missing native.assets array');
+        else results.info.push(`Native ${results.version} with ${native.assets.length} assets`);
+      } catch (e) { results.errors.push('JSON parse error: ' + e.message); }
+      return results;
+    }
+
+    function validateHtml(adm) {
+      const results = { errors: [], warnings: [], info: [] };
+      if (!adm) { results.errors.push('Empty HTML'); return results; }
+      if (/<script/i.test(adm)) results.info.push('Contains <script>');
+      if (/<iframe/i.test(adm)) results.info.push('Contains <iframe>');
+      results.info.push(`HTML banner (${adm.length} chars)`);
+      return results;
+    }
+
+    function validateOpenRtb(json) {
+      const results = { valid: true, structure: { errors: [], warnings: [], info: [] }, adm: null, extensions: [], unknownFields: { response: [], seatbid: [], bid: [] } };
+      if (!json.id) results.structure.errors.push('Missing required: id');
+      if (!json.seatbid || !Array.isArray(json.seatbid) || json.seatbid.length === 0) {
+        results.structure.errors.push('Missing or empty: seatbid');
+        results.valid = false;
+        return results;
+      }
+      const responseKnown = [...OPENRTB_SPEC.response.required, ...OPENRTB_SPEC.response.optional];
+      Object.keys(json).forEach(k => { if (!responseKnown.includes(k)) results.unknownFields.response.push(k); });
+      if (json.ext) results.extensions.push({ level: 'response', data: json.ext });
+      const seatbid = json.seatbid[0];
+      const seatbidKnown = [...OPENRTB_SPEC.seatbid.required, ...OPENRTB_SPEC.seatbid.optional];
+      Object.keys(seatbid).forEach(k => { if (!seatbidKnown.includes(k)) results.unknownFields.seatbid.push(k); });
+      if (seatbid.ext) results.extensions.push({ level: 'seatbid', data: seatbid.ext });
+      if (!seatbid.bid || !Array.isArray(seatbid.bid) || seatbid.bid.length === 0) {
+        results.structure.errors.push('Missing or empty: seatbid.bid');
+        results.valid = false;
+        return results;
+      }
+      const bid = seatbid.bid[0];
+      const bidKnown = [...OPENRTB_SPEC.bid.required, ...OPENRTB_SPEC.bid.optional];
+      Object.keys(bid).forEach(k => { if (!bidKnown.includes(k)) results.unknownFields.bid.push(k); });
+      OPENRTB_SPEC.bid.required.forEach(f => { if (!(f in bid)) results.structure.errors.push(`Missing bid.${f}`); });
+      if (bid.ext) results.extensions.push({ level: 'bid', data: bid.ext });
+      if (bid.price !== undefined && bid.price < 0) results.structure.warnings.push('Negative price');
+      if (bid.adm) {
+        const admType = detectAdmType(bid.adm);
+        results.adm = { type: admType, raw: bid.adm };
+        if (admType === 'VAST') results.adm.validation = validateVast(bid.adm);
+        else if (admType === 'NATIVE') results.adm.validation = validateNative(bid.adm);
+        else if (admType === 'HTML') results.adm.validation = validateHtml(bid.adm);
+        else results.adm.validation = { errors: [], warnings: ['Unknown ADM type'], info: [] };
+      }
+      // Extract bid dimensions for HTML ads
+      results.bidWidth = bid.w;
+      results.bidHeight = bid.h;
+      const allUnknown = [...results.unknownFields.response, ...results.unknownFields.seatbid, ...results.unknownFields.bid];
+      if (allUnknown.length > 0) results.structure.warnings.push('Unknown fields detected');
+      results.valid = results.structure.errors.length === 0 && (!results.adm?.validation?.errors || results.adm.validation.errors.length === 0);
+      return results;
+    }
+
+    function formatXml(xml) {
+      let formatted = '';
+      let indent = 0;
+      const tab = '  ';
+      const normalized = xml.replace(/>\s+</g, '><').replace(/\s+</g, '<').trim();
+      const parts = normalized.split(/(<[^>]+>)/g).filter(Boolean);
+      parts.forEach((part) => {
+        if (part.startsWith('</')) { indent = Math.max(0, indent - 1); formatted += tab.repeat(indent) + part + '\n'; }
+        else if (part.startsWith('<?') || part.startsWith('<!')) { formatted += tab.repeat(indent) + part + '\n'; }
+        else if (part.startsWith('<') && part.endsWith('/>')) { formatted += tab.repeat(indent) + part + '\n'; }
+        else if (part.startsWith('<')) { formatted += tab.repeat(indent) + part + '\n'; indent++; }
+        else if (part.trim()) { formatted += tab.repeat(indent) + part + '\n'; }
+      });
+      return formatted.trim();
+    }
+
+    function formatHtml(html) {
+      let formatted = '', indent = '';
+      const tab = '  ';
+      const selfClosing = ['img', 'br', 'hr', 'input', 'meta', 'link'];
+      const tokens = html.replace(/>\s+</g, '><').split(/(<[^>]+>)/g).filter(Boolean);
+      tokens.forEach(token => {
+        if (token.startsWith('</')) { indent = indent.substring(tab.length); formatted += indent + token + '\n'; }
+        else if (token.startsWith('<')) {
+          formatted += indent + token + '\n';
+          const tagMatch = token.match(/^<(\w+)/);
+          if (tagMatch && !selfClosing.includes(tagMatch[1].toLowerCase()) && !token.endsWith('/>')) indent += tab;
+        } else if (token.trim()) { formatted += indent + token.trim() + '\n'; }
+      });
+      return formatted.trim();
+    }
+
+    function Section({ title, icon: Icon, children, defaultOpen = true }) {
+      const [open, setOpen] = useState(defaultOpen);
+      return (
+        <div className="mb-3">
+          <button onClick={() => setOpen(!open)} className="flex items-center gap-2 w-full text-left text-sm font-medium text-gray-300 hover:text-white py-1">
+            {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            <Icon size={16} />
+            {title}
+          </button>
+          {open && <div className="ml-6 mt-2">{children}</div>}
+        </div>
+      );
+    }
+
+    function StatusItem({ type, message }) {
+      const config = {
+        error: { icon: XCircle, color: 'text-red-400', bg: 'bg-red-900/30' },
+        warning: { icon: AlertTriangle, color: 'text-yellow-400', bg: 'bg-yellow-900/30' },
+        info: { icon: Info, color: 'text-blue-400', bg: 'bg-blue-900/30' },
+        success: { icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-900/30' },
+      };
+      const { icon: Icon, color, bg } = config[type] || config.info;
+      return (
+        <div className={`flex items-start gap-2 p-2 rounded ${bg} mb-1`}>
+          <Icon size={14} className={`${color} mt-0.5 flex-shrink-0`} />
+          <span className="text-sm text-gray-300">{message}</span>
+        </div>
+      );
+    }
+
+    function ExtensionDisplay({ extensions }) {
+      if (!extensions || extensions.length === 0) return <p className="text-sm text-gray-500">No extensions</p>;
+      return (
+        <div className="space-y-3">
+          {extensions.map((ext, i) => (
+            <div key={i} className="bg-gray-800 rounded p-3">
+              <div className="text-xs text-gray-400 mb-2">{ext.level}.ext</div>
+              {Object.entries(ext.data).map(([key, value]) => (
+                <div key={key} className="mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-mono text-purple-400">{key}</span>
+                    {KNOWN_EXTENSIONS[key] && <span className="text-xs text-gray-500">— {KNOWN_EXTENSIONS[key]}</span>}
+                  </div>
+                  <pre className="text-xs text-gray-400 mt-1 overflow-x-auto">{JSON.stringify(value, null, 2)}</pre>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    function AdmDisplay({ adm }) {
+      const [copied, setCopied] = useState(false);
+      if (!adm) return null;
+      let formatted = adm.raw, language = 'text';
+      if (adm.type === 'VAST') { formatted = formatXml(adm.raw); language = 'xml'; }
+      else if (adm.type === 'HTML') { formatted = formatHtml(adm.raw); language = 'html'; }
+      else if (adm.type === 'NATIVE') { try { formatted = JSON.stringify(JSON.parse(adm.raw), null, 2); language = 'json'; } catch {} }
+      const copyToClipboard = () => { navigator.clipboard.writeText(formatted); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+      const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const syntaxHighlight = (code, lang) => {
+        if (lang === 'xml' || lang === 'html') {
+          return code.split('\n').map(line => {
+            if (line.includes('<![CDATA[')) {
+              return line.replace(/<!\[CDATA\[/g, '<span class="text-gray-500">&lt;![CDATA[</span>').replace(/\]\]>/g, '<span class="text-gray-500">]]&gt;</span>').replace(/<(?!span|\/span)([^\s<>!\[]+)/g, '&lt;<span class="text-pink-400">$1</span>').replace(/<\/(?!span)([^>]+)>/g, '&lt;/<span class="text-pink-400">$1</span>&gt;');
+            }
+            let escaped = escapeHtml(line);
+            escaped = escaped.replace(/&lt;(\/?)([\w:-]+)/g, '&lt;$1<span class="text-pink-400">$2</span>');
+            escaped = escaped.replace(/\s([\w:-]+)=&quot;/g, ' <span class="text-yellow-400">$1</span>=&quot;');
+            escaped = escaped.replace(/=&quot;([^&]*)&quot;/g, '=<span class="text-green-400">"$1"</span>');
+            return escaped;
+          }).join('\n');
+        } else if (lang === 'json') {
+          const escaped = escapeHtml(code);
+          return escaped.replace(/&quot;([^&]+)&quot;:/g, '<span class="text-purple-400">"$1"</span>:').replace(/: &quot;([^&]*)&quot;/g, ': <span class="text-green-400">"$1"</span>').replace(/: (\d+)/g, ': <span class="text-yellow-400">$1</span>').replace(/: (true|false|null)/g, ': <span class="text-orange-400">$1</span>');
+        }
+        return escapeHtml(code);
+      };
+      return (
+        <div className="bg-gray-900 rounded border border-gray-700">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-gray-400">Decoded ADM</span>
+              <span className="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">{adm.type}</span>
+            </div>
+            <button onClick={copyToClipboard} className="text-xs text-blue-400 hover:text-blue-300">{copied ? 'Copied!' : 'Copy'}</button>
+          </div>
+          <div className="p-3 overflow-x-auto max-h-80 overflow-y-auto custom-scrollbar">
+            <pre className="text-xs font-mono text-gray-300 whitespace-pre" dangerouslySetInnerHTML={{ __html: syntaxHighlight(formatted, language) }} />
+          </div>
+        </div>
+      );
+    }
+
+    function UnknownFieldsDisplay({ unknownFields }) {
+      const hasAny = unknownFields.response.length > 0 || unknownFields.seatbid.length > 0 || unknownFields.bid.length > 0;
+      if (!hasAny) return <StatusItem type="success" message="All fields match OpenRTB spec" />;
+      return (
+        <div className="space-y-2">
+          {unknownFields.response.length > 0 && <div className="bg-yellow-900/20 rounded p-2"><div className="text-xs text-yellow-400 mb-1">Response:</div><div className="text-sm font-mono text-gray-300">{unknownFields.response.join(', ')}</div></div>}
+          {unknownFields.seatbid.length > 0 && <div className="bg-yellow-900/20 rounded p-2"><div className="text-xs text-yellow-400 mb-1">Seatbid:</div><div className="text-sm font-mono text-gray-300">{unknownFields.seatbid.join(', ')}</div></div>}
+          {unknownFields.bid.length > 0 && <div className="bg-yellow-900/20 rounded p-2"><div className="text-xs text-yellow-400 mb-1">Bid:</div><div className="text-sm font-mono text-gray-300">{unknownFields.bid.join(', ')}</div></div>}
+        </div>
+      );
+    }
+
+    function HtmlAdPreview({ adm, bidWidth, bidHeight }) {
+      const iframeRef = useRef(null);
+      const hasFixedSize = bidWidth && bidHeight;
+      const [selectedSize, setSelectedSize] = useState(
+        hasFixedSize ? 'bid' : '300x250'
+      );
+      
+      const dimensions = selectedSize === 'bid' 
+        ? { width: bidWidth, height: bidHeight }
+        : selectedSize === 'flexible'
+        ? { width: '100%', height: 'auto' }
+        : { width: parseInt(selectedSize.split('x')[0]), height: parseInt(selectedSize.split('x')[1]) };
+
+      useEffect(() => {
+        if (!iframeRef.current || !adm?.raw) return;
+        const doc = iframeRef.current.contentDocument || iframeRef.current.contentWindow.document;
+        doc.open();
+        doc.write(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { margin: 0; padding: 0; overflow: hidden; }
+              ${selectedSize === 'flexible' ? 'body { display: inline-block; }' : ''}
+            </style>
+          </head>
+          <body>${adm.raw}</body>
+          </html>
+        `);
+        doc.close();
+      }, [adm, selectedSize]);
+
+      if (!adm || adm.type !== 'HTML') return null;
+
+      const isFlexible = selectedSize === 'flexible';
+      const containerStyle = isFlexible 
+        ? { minWidth: 100, minHeight: 50, maxWidth: '100%' }
+        : { width: dimensions.width, height: dimensions.height };
+
+      return (
+        <div className="bg-gray-950 rounded-lg border border-gray-700 overflow-hidden">
+          <div className="px-4 py-2 bg-gray-900 border-b border-gray-700 flex items-center justify-between">
+            <span className="text-sm font-medium text-white">HTML Ad Preview</span>
+            <div className="flex items-center gap-2">
+              <select 
+                value={selectedSize}
+                onChange={(e) => setSelectedSize(e.target.value)}
+                className="text-xs bg-gray-800 border border-gray-700 rounded px-2 py-1 text-gray-300"
+              >
+                {hasFixedSize && (
+                  <option value="bid">From Bid: {bidWidth}×{bidHeight}</option>
+                )}
+                <option value="flexible">Flexible (auto)</option>
+                <option value="300x250">300×250 (Medium Rectangle)</option>
+                <option value="320x50">320×50 (Mobile Banner)</option>
+                <option value="728x90">728×90 (Leaderboard)</option>
+                <option value="160x600">160×600 (Wide Skyscraper)</option>
+                <option value="300x600">300×600 (Half Page)</option>
+                <option value="970x250">970×250 (Billboard)</option>
+              </select>
+            </div>
+          </div>
+          <div className="p-4 flex justify-center items-center bg-gray-900/50 min-h-[300px]">
+            <div 
+              className="bg-white rounded shadow-lg overflow-hidden"
+              style={containerStyle}
+            >
+              <iframe
+                ref={iframeRef}
+                title="HTML Ad Preview"
+                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                style={{ 
+                  width: isFlexible ? '100%' : '100%', 
+                  height: isFlexible ? '100%' : '100%', 
+                  border: 'none',
+                  minHeight: isFlexible ? 50 : undefined
+                }}
+              />
+            </div>
+          </div>
+          <div className="px-4 py-2 bg-gray-900 border-t border-gray-700 text-xs text-gray-500">
+            {hasFixedSize && selectedSize === 'bid' && (
+              <span className="text-green-400 mr-2">Size from bid response</span>
+            )}
+            {isFlexible ? 'Flexible container • ' : `Preview: ${dimensions.width}×${dimensions.height}px • `}
+            Ad rendered in sandboxed iframe
+          </div>
+        </div>
+      );
+    }
+
+    function NativeAdPreview({ adm }) {
+      if (!adm || adm.type !== 'NATIVE') return null;
+
+      return (
+        <div className="bg-gray-950 rounded-lg border border-gray-700 overflow-hidden">
+          <div className="px-4 py-2 bg-gray-900 border-b border-gray-700">
+            <span className="text-sm font-medium text-white">Native Ad</span>
+          </div>
+          <div className="p-8 flex flex-col items-center justify-center text-center min-h-[200px]">
+            <div className="text-gray-500 text-sm mb-2">Native Ad Preview Not Available</div>
+            <div className="text-gray-600 text-xs max-w-md">
+              Native ads require custom rendering based on your app's UI. 
+              Check the "Decoded ADM" section above to see the native ad JSON structure.
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function AdMediaPreview({ adm, bidWidth, bidHeight }) {
+      if (!adm) return null;
+
+      switch (adm.type) {
+        case 'VAST':
+          return <VastInspector adm={adm} />;
+        case 'HTML':
+          return <HtmlAdPreview adm={adm} bidWidth={bidWidth} bidHeight={bidHeight} />;
+        case 'NATIVE':
+          return <NativeAdPreview adm={adm} />;
+        default:
+          return (
+            <div className="bg-gray-950 rounded-lg border border-gray-700 p-8 text-center">
+              <div className="text-gray-500 text-sm">Unknown ad type: {adm.type}</div>
+            </div>
+          );
+      }
+    }
+
+    function VastInspector({ adm }) {
+      const videoRef = useRef(null);
+      const adContainerRef = useRef(null);
+      const [isPlaying, setIsPlaying] = useState(false);
+      const [isMuted, setIsMuted] = useState(true);
+      const [currentTime, setCurrentTime] = useState(0);
+      const [duration, setDuration] = useState(0);
+      const [vastData, setVastData] = useState(null);
+      const [error, setError] = useState(null);
+      const [events, setEvents] = useState([]);
+      const [hasStarted, setHasStarted] = useState(false);
+      const [volume, setVolume] = useState(1);
+      const [isLoading, setIsLoading] = useState(false);
+      const [adInfo, setAdInfo] = useState(null);
+      
+      const adsManagerRef = useRef(null);
+      const adsLoaderRef = useRef(null);
+      const adDisplayContainerRef = useRef(null);
+
+      const logEvent = (type, name, details = '') => {
+        const ts = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+        setEvents(prev => [{ ts, type, name, details }, ...prev]);
+      };
+
+      // Parse VAST for display info (without IMA)
+      const parseVastInfo = (vastXml) => {
+        try {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(vastXml, 'text/xml');
+          if (doc.querySelector('parsererror')) return null;
+          
+          const vast = doc.querySelector('VAST');
+          const version = vast?.getAttribute('version') || 'Unknown';
+          const inline = doc.querySelector('InLine');
+          const wrapper = doc.querySelector('Wrapper');
+          const adType = inline ? 'InLine' : wrapper ? 'Wrapper' : 'Unknown';
+          const adSystem = doc.querySelector('AdSystem')?.textContent?.trim() || '';
+          const durationStr = doc.querySelector('Duration')?.textContent?.trim() || '';
+          const creatives = doc.querySelectorAll('Creative');
+          const mediaFiles = [];
+          doc.querySelectorAll('MediaFile').forEach(mf => {
+            const url = mf.textContent?.trim().replace(/^<!\[CDATA\[/, '').replace(/\]\]>$/, '').trim();
+            mediaFiles.push({ url, type: mf.getAttribute('type') || '', width: mf.getAttribute('width') || '', height: mf.getAttribute('height') || '' });
+          });
+          const trackingEvents = {};
+          doc.querySelectorAll('Tracking').forEach(t => {
+            const event = t.getAttribute('event');
+            if (event) { if (!trackingEvents[event]) trackingEvents[event] = []; trackingEvents[event].push('tracking URL'); }
+          });
+          const impressions = doc.querySelectorAll('Impression').length;
+          const clickThrough = doc.querySelector('ClickThrough')?.textContent?.trim() || '';
+          const vastAdTagUri = doc.querySelector('VASTAdTagURI')?.textContent?.trim() || '';
+          
+          const compliance = [];
+          if (!vast) compliance.push('Missing VAST');
+          if (!inline && !wrapper) compliance.push('Missing InLine/Wrapper');
+          if (wrapper && !vastAdTagUri) compliance.push('Wrapper missing VASTAdTagURI');
+          
+          return { version, adType, adSystem, durationStr, creativesCount: creatives.length, mediaFiles, trackingEvents, impressions, clickThrough, vastAdTagUri, isWrapper: !!wrapper, compliance, isCompliant: compliance.length === 0 };
+        } catch (e) { return null; }
+      };
+
+      useEffect(() => {
+        if (!adm || adm.type !== 'VAST') return;
+        
+        // Reset state
+        setEvents([]); setError(null); setHasStarted(false); setIsPlaying(false); 
+        setCurrentTime(0); setDuration(0); setIsLoading(false); setAdInfo(null);
+        
+        // Parse VAST info for display
+        const info = parseVastInfo(adm.raw);
+        setVastData(info);
+        
+        // Cleanup previous IMA instances
+        if (adsManagerRef.current) {
+          adsManagerRef.current.destroy();
+          adsManagerRef.current = null;
+        }
+        if (adsLoaderRef.current) {
+          adsLoaderRef.current.destroy();
+          adsLoaderRef.current = null;
+        }
+      }, [adm]);
+
+      const initializeIMA = () => {
+        if (!adContainerRef.current || !videoRef.current) {
+          setError('Video container not ready');
+          return;
+        }
+        
+        if (typeof google === 'undefined' || !google.ima) {
+          setError('IMA SDK not loaded. Please refresh the page.');
+          logEvent('error', 'IMANotLoaded', 'google.ima is undefined');
+          return;
+        }
+        
+        setIsLoading(true);
+        setHasStarted(true);
+        logEvent('ima', 'Initializing', 'Setting up IMA SDK...');
+        
+        try {
+          // Create ad display container
+          adDisplayContainerRef.current = new google.ima.AdDisplayContainer(adContainerRef.current, videoRef.current);
+          adDisplayContainerRef.current.initialize();
+          
+          // Create ads loader
+          adsLoaderRef.current = new google.ima.AdsLoader(adDisplayContainerRef.current);
+          
+          // Add event listeners
+          adsLoaderRef.current.addEventListener(
+            google.ima.AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED,
+            onAdsManagerLoaded,
+            false
+          );
+          adsLoaderRef.current.addEventListener(
+            google.ima.AdErrorEvent.Type.AD_ERROR,
+            onAdError,
+            false
+          );
+          
+          // Create ads request with VAST XML directly
+          const adsRequest = new google.ima.AdsRequest();
+          adsRequest.adsResponse = adm.raw;
+          adsRequest.linearAdSlotWidth = 640;
+          adsRequest.linearAdSlotHeight = 360;
+          
+          logEvent('ima', 'RequestingAds', 'Parsing VAST response...');
+          adsLoaderRef.current.requestAds(adsRequest);
+          
+        } catch (e) {
+          setError('IMA init error: ' + e.message);
+          logEvent('error', 'IMAError', e.message);
+          setIsLoading(false);
+        }
+      };
+
+      const onAdsManagerLoaded = (adsManagerLoadedEvent) => {
+        logEvent('ima', 'AdsManagerLoaded', 'Ad parsed successfully');
+        
+        const adsRenderingSettings = new google.ima.AdsRenderingSettings();
+        adsRenderingSettings.restoreCustomPlaybackStateOnAdBreakComplete = true;
+        
+        adsManagerRef.current = adsManagerLoadedEvent.getAdsManager(videoRef.current, adsRenderingSettings);
+        
+        // Add ad event listeners
+        adsManagerRef.current.addEventListener(google.ima.AdErrorEvent.Type.AD_ERROR, onAdError);
+        adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.CONTENT_PAUSE_REQUESTED, () => logEvent('ima', 'ContentPauseRequested'));
+        adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.CONTENT_RESUME_REQUESTED, () => logEvent('ima', 'ContentResumeRequested'));
+        adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.LOADED, onAdLoaded);
+        adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.STARTED, () => { logEvent('player', 'AdStarted'); setIsPlaying(true); });
+        adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.FIRST_QUARTILE, () => logEvent('tracking', 'FirstQuartile', '25%'));
+        adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.MIDPOINT, () => logEvent('tracking', 'Midpoint', '50%'));
+        adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.THIRD_QUARTILE, () => logEvent('tracking', 'ThirdQuartile', '75%'));
+        adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.COMPLETE, () => { logEvent('tracking', 'Complete', '100%'); setIsPlaying(false); });
+        adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.PAUSED, () => { logEvent('player', 'AdPaused'); setIsPlaying(false); });
+        adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.RESUMED, () => { logEvent('player', 'AdResumed'); setIsPlaying(true); });
+        adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.CLICK, () => logEvent('player', 'AdClick'));
+        adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.IMPRESSION, () => logEvent('tracking', 'Impression'));
+        adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.SKIPPED, () => logEvent('player', 'AdSkipped'));
+        adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.ALL_ADS_COMPLETED, () => { logEvent('ima', 'AllAdsCompleted'); setIsPlaying(false); });
+        adsManagerRef.current.addEventListener(google.ima.AdEvent.Type.LOG, (e) => {
+          const adData = e.getAdData();
+          if (adData.adError) logEvent('warning', 'AdLog', adData.adError.getMessage());
+        });
+
+        try {
+          adsManagerRef.current.init(640, 360, google.ima.ViewMode.NORMAL);
+          adsManagerRef.current.setVolume(isMuted ? 0 : volume);
+          adsManagerRef.current.start();
+          setIsLoading(false);
+        } catch (e) {
+          logEvent('error', 'AdsManagerError', e.message);
+          setError('Failed to start ad: ' + e.message);
+          setIsLoading(false);
+        }
+      };
+
+      const onAdLoaded = (adEvent) => {
+        const ad = adEvent.getAd();
+        const info = {
+          adId: ad.getAdId(),
+          adSystem: ad.getAdSystem(),
+          duration: ad.getDuration(),
+          width: ad.getWidth(),
+          height: ad.getHeight(),
+          title: ad.getTitle(),
+          description: ad.getDescription(),
+          advertiserName: ad.getAdvertiserName(),
+          isLinear: ad.isLinear(),
+          isSkippable: ad.isSkippable(),
+          skipTimeOffset: ad.getSkipTimeOffset(),
+          wrapperAdIds: ad.getWrapperAdIds(),
+          wrapperAdSystems: ad.getWrapperAdSystems(),
+          wrapperCreativeIds: ad.getWrapperCreativeIds(),
+        };
+        setAdInfo(info);
+        setDuration(ad.getDuration());
+        logEvent('ima', 'AdLoaded', `${info.adSystem} - ${info.duration}s ${info.isSkippable ? '(skippable)' : ''}`);
+        
+        if (info.wrapperAdIds?.length > 0) {
+          logEvent('ima', 'WrapperChain', `${info.wrapperAdIds.length + 1} VAST documents`);
+        }
+      };
+
+      const onAdError = (adErrorEvent) => {
+        const error = adErrorEvent.getError();
+        const errorCode = error.getErrorCode();
+        const errorMessage = error.getMessage();
+        logEvent('error', `AdError ${errorCode}`, errorMessage);
+        setError(`VAST Error ${errorCode}: ${errorMessage}`);
+        setIsLoading(false);
+        if (adsManagerRef.current) {
+          adsManagerRef.current.destroy();
+          adsManagerRef.current = null;
+        }
+      };
+
+      const handlePlayPause = () => {
+        if (!adsManagerRef.current) return;
+        if (isPlaying) {
+          adsManagerRef.current.pause();
+        } else {
+          adsManagerRef.current.resume();
+        }
+      };
+
+      const toggleMute = () => {
+        if (!adsManagerRef.current) return;
+        const newMuted = !isMuted;
+        setIsMuted(newMuted);
+        adsManagerRef.current.setVolume(newMuted ? 0 : volume);
+        logEvent('player', newMuted ? 'AdMuted' : 'AdUnmuted');
+      };
+
+      const handleVolumeChange = (e) => {
+        const v = parseFloat(e.target.value);
+        setVolume(v);
+        if (adsManagerRef.current) {
+          adsManagerRef.current.setVolume(v);
+          if (v > 0 && isMuted) setIsMuted(false);
+        }
+      };
+
+      const handleReset = () => {
+        if (adsManagerRef.current) {
+          adsManagerRef.current.destroy();
+          adsManagerRef.current = null;
+        }
+        setHasStarted(false);
+        setIsPlaying(false);
+        setCurrentTime(0);
+        setEvents([]);
+        setAdInfo(null);
+        setError(null);
+      };
+
+      // Update current time from IMA
+      useEffect(() => {
+        if (!adsManagerRef.current || !isPlaying) return;
+        const interval = setInterval(() => {
+          if (adsManagerRef.current) {
+            const remaining = adsManagerRef.current.getRemainingTime();
+            if (remaining >= 0 && duration > 0) {
+              setCurrentTime(duration - remaining);
+            }
+          }
+        }, 100);
+        return () => clearInterval(interval);
+      }, [isPlaying, duration]);
+
+      const formatTime = (s) => { if (!s || isNaN(s)) return '00:00'; return `${Math.floor(s / 60).toString().padStart(2, '0')}:${Math.floor(s % 60).toString().padStart(2, '0')}`; };
+
+      if (!adm || adm.type !== 'VAST') return null;
+
+      return (
+        <div className="bg-gray-950 rounded-lg border border-gray-700 overflow-hidden">
+          <div className="px-4 py-2 bg-gray-900 border-b border-gray-700 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-white">VAST Inspector (IMA SDK)</span>
+              {isLoading && <span className="text-xs text-yellow-400 animate-pulse">Loading...</span>}
+              {vastData && !isLoading && <span className={`text-xs px-2 py-0.5 rounded ${vastData.isCompliant ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>{vastData.isCompliant ? '✓ Valid' : '✗ Issues'}</span>}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              {vastData && <><span>v{vastData.version}</span><span className="text-gray-600">|</span><span>{vastData.adType}</span>{adInfo?.wrapperAdIds?.length > 0 && <><span className="text-gray-600">|</span><span className="text-yellow-400">{adInfo.wrapperAdIds.length + 1} wrappers</span></>}</>}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-5 divide-y lg:divide-y-0 lg:divide-x divide-gray-700">
+            <div className="lg:col-span-3 p-4">
+              <div className="text-xs text-gray-500 mb-2 font-medium">Video Player (Google IMA) {typeof google !== 'undefined' && google.ima ? <span className="text-green-400">✓</span> : <span className="text-red-400">SDK not loaded</span>}</div>
+              {error && <div className="bg-red-900/30 text-red-400 text-sm p-3 rounded-lg mb-3">{error}</div>}
+              
+              <div className="bg-black rounded-lg overflow-hidden">
+                <div className="relative aspect-video">
+                  {!hasStarted && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-20">
+                      {typeof google !== 'undefined' && google.ima ? (
+                        <>
+                          <button onClick={initializeIMA} className="flex items-center justify-center w-20 h-20 bg-blue-600 hover:bg-blue-500 rounded-full transition-all hover:scale-105 shadow-lg">
+                            <Play size={36} className="ml-1 text-white" />
+                          </button>
+                          <span className="text-gray-400 text-sm mt-4">Click to Test Ad with IMA SDK</span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-red-400 text-sm mb-2">IMA SDK failed to load</div>
+                          <div className="text-gray-500 text-xs">This may be due to an ad blocker.</div>
+                          <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm">Refresh Page</button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  <video ref={videoRef} className="w-full h-full" playsInline muted />
+                  <div ref={adContainerRef} className="absolute inset-0" />
+                </div>
+                
+                {hasStarted && (
+                  <div className="bg-gray-900 p-2 space-y-2">
+                    <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500 transition-all" style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }} />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button onClick={handlePlayPause} className="p-1.5 hover:bg-gray-700 rounded" disabled={!adsManagerRef.current}>
+                        {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+                      </button>
+                      <span className="text-xs text-gray-300 font-mono min-w-[90px]">{formatTime(currentTime)} / {formatTime(duration)}</span>
+                      <div className="flex-1" />
+                      <button onClick={toggleMute} className="p-1.5 hover:bg-gray-700 rounded">{isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}</button>
+                      <input type="range" min="0" max="1" step="0.1" value={isMuted ? 0 : volume} onChange={handleVolumeChange} className="w-16 h-1 bg-gray-600 rounded-lg cursor-pointer" />
+                      <button onClick={handleReset} className="p-1.5 hover:bg-gray-700 rounded" title="Reset"><RotateCcw size={18} /></button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Ad Info from IMA */}
+              {adInfo && (
+                <div className="mt-4">
+                  <div className="text-xs text-gray-500 mb-2 font-medium">Ad Info (from IMA)</div>
+                  <div className="bg-gray-900 rounded p-3 grid grid-cols-2 gap-2 text-xs">
+                    {adInfo.adSystem && <div><span className="text-gray-500">Ad System:</span> <span className="text-gray-300">{adInfo.adSystem}</span></div>}
+                    {adInfo.title && <div><span className="text-gray-500">Title:</span> <span className="text-gray-300">{adInfo.title}</span></div>}
+                    <div><span className="text-gray-500">Duration:</span> <span className="text-gray-300">{adInfo.duration}s</span></div>
+                    <div><span className="text-gray-500">Size:</span> <span className="text-gray-300">{adInfo.width}×{adInfo.height}</span></div>
+                    <div><span className="text-gray-500">Linear:</span> <span className="text-gray-300">{adInfo.isLinear ? 'Yes' : 'No'}</span></div>
+                    <div><span className="text-gray-500">Skippable:</span> <span className="text-gray-300">{adInfo.isSkippable ? `Yes (${adInfo.skipTimeOffset}s)` : 'No'}</span></div>
+                    {adInfo.wrapperAdSystems?.length > 0 && (
+                      <div className="col-span-2"><span className="text-gray-500">Wrapper Chain:</span> <span className="text-yellow-400">{adInfo.wrapperAdSystems.join(' → ')}</span></div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Media Files */}
+              {vastData?.mediaFiles?.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-xs text-gray-500 mb-2 font-medium">Media Files ({vastData.mediaFiles.length})</div>
+                  <div className="space-y-1 max-h-28 overflow-y-auto custom-scrollbar">
+                    {vastData.mediaFiles.map((mf, i) => (
+                      <div key={i} className="bg-gray-900 rounded p-2 text-xs flex items-center gap-3">
+                        <span className="text-gray-400 bg-gray-800 px-2 py-0.5 rounded">{mf.type || 'unknown'}</span>
+                        <span className="text-gray-400">{mf.width}×{mf.height}</span>
+                        <a href={mf.url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline truncate flex-1">{mf.url}</a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="lg:col-span-2 flex flex-col">
+              <div className="p-4 border-b border-gray-700">
+                <div className="text-xs text-gray-500 mb-2 font-medium">VAST Info</div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  <div className="flex justify-between"><span className="text-gray-500">Compliance:</span><span className={vastData?.isCompliant ? 'text-green-400' : 'text-red-400'}>{vastData?.isCompliant ? 'Valid' : 'Invalid'}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Version:</span><span className="text-gray-300">{vastData?.version || '-'}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Type:</span><span className="text-gray-300">{vastData?.adType || '-'}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Creatives:</span><span className="text-gray-300">{vastData?.creativesCount || 0}</span></div>
+                  {vastData?.adSystem && <div className="flex justify-between col-span-2"><span className="text-gray-500">Ad System:</span><span className="text-gray-300">{vastData.adSystem}</span></div>}
+                  {vastData?.durationStr && <div className="flex justify-between col-span-2"><span className="text-gray-500">Duration:</span><span className="text-gray-300">{vastData.durationStr}</span></div>}
+                  {vastData?.isWrapper && <div className="flex justify-between col-span-2"><span className="text-gray-500">VASTAdTagURI:</span><span className="text-yellow-400">Yes (Wrapper)</span></div>}
+                </div>
+              </div>
+              <div className="flex-1 flex flex-col min-h-0 p-4">
+                <div className="flex items-center justify-between mb-2"><span className="text-xs text-gray-500 font-medium">Event Log (IMA SDK)</span><button onClick={() => setEvents([])} className="text-xs text-gray-500 hover:text-gray-300">Clear</button></div>
+                <div className="flex-1 bg-gray-900 rounded-lg p-2 overflow-y-auto font-mono text-xs min-h-[180px] max-h-[250px] custom-scrollbar">
+                  {events.length === 0 ? <div className="text-gray-600 text-center py-8">Click play to test with IMA SDK</div> : events.map((e, i) => (
+                    <div key={i} className="flex gap-2 py-1 border-b border-gray-800 last:border-0">
+                      <span className="text-gray-600 flex-shrink-0 w-20">{e.ts}</span>
+                      <span className={`flex-shrink-0 w-32 ${e.type === 'error' ? 'text-red-400' : e.type === 'warning' ? 'text-yellow-400' : e.type === 'tracking' ? 'text-green-400' : e.type === 'ima' ? 'text-purple-400' : 'text-blue-400'}`}>{e.name}</span>
+                      <span className="text-gray-500 truncate" title={e.details}>{e.details}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="p-4 border-t border-gray-700">
+                <div className="text-xs text-gray-500 mb-2 font-medium">Tracking ({Object.keys(vastData?.trackingEvents || {}).length} events)</div>
+                <div className="flex flex-wrap gap-1">
+                  {Object.entries(vastData?.trackingEvents || {}).map(([event, urls]) => <span key={event} className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-300">{event} ({urls.length})</span>)}
+                </div>
+                {vastData?.impressions > 0 && <div className="text-xs text-gray-500 mt-2">Impressions: {vastData.impressions}</div>}
+              </div>
+            </div>
+          </div>
+          {vastData && !vastData.isCompliant && <div className="px-4 py-3 bg-red-900/20 border-t border-red-900/50"><div className="text-xs font-medium text-red-400 mb-1">Issues:</div><div className="text-xs text-red-300">{vastData.compliance.join(' • ')}</div></div>}
+        </div>
+      );
+    }
+
+    const SAMPLE = `{"id":"1234567890","bidid":"abc123","cur":"USD","seatbid":[{"bid":[{"id":"1","impid":"102","price":1.23,"adid":"314","adomain":["example.com"],"crid":"1234","adm":"<?xml version=\\"1.0\\"?><VAST version=\\"3.0\\"><Ad id=\\"123\\"><InLine><AdSystem>Test</AdSystem><AdTitle>Sample</AdTitle><Impression><![CDATA[https://example.com/imp]]></Impression><Creatives><Creative><Linear><Duration>00:00:10</Duration><TrackingEvents><Tracking event=\\"start\\"><![CDATA[https://example.com/start]]></Tracking><Tracking event=\\"firstQuartile\\"><![CDATA[https://example.com/q1]]></Tracking><Tracking event=\\"midpoint\\"><![CDATA[https://example.com/mid]]></Tracking><Tracking event=\\"thirdQuartile\\"><![CDATA[https://example.com/q3]]></Tracking><Tracking event=\\"complete\\"><![CDATA[https://example.com/complete]]></Tracking></TrackingEvents><MediaFiles><MediaFile type=\\"video/mp4\\" width=\\"640\\" height=\\"360\\"><![CDATA[https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4]]></MediaFile></MediaFiles><VideoClicks><ClickThrough><![CDATA[https://example.com/landing]]></ClickThrough></VideoClicks></Linear></Creative></Creatives></InLine></Ad></VAST>","ext":{"skadn":{"version":"2.0"}}}],"seat":"512"}],"ext":{"protocol":"5.0"}}`;
+
+    function App() {
+      const [input, setInput] = useState('');
+      const [results, setResults] = useState(null);
+      const [parseError, setParseError] = useState(null);
+
+      const validate = () => {
+        setParseError(null); setResults(null);
+        try { const json = JSON.parse(input); setResults(validateOpenRtb(json)); }
+        catch (e) { setParseError('Invalid JSON: ' + e.message); }
+      };
+
+      const loadSample = () => { setInput(SAMPLE); setParseError(null); setResults(null); };
+
+      return (
+        <div className="min-h-screen bg-gray-950 text-gray-100 p-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-white mb-1">OpenRTB Bid Response Validator</h1>
+              <p className="text-gray-400 text-sm">Validates OpenRTB 2.5/2.6 with VAST 3.0-4.0, HTML, and Native 1.0-1.2</p>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="bg-gray-900 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-medium text-gray-300">Bid Response JSON</h2>
+                  <button onClick={loadSample} className="text-xs text-blue-400 hover:text-blue-300">Load Sample</button>
+                </div>
+                <textarea value={input} onChange={(e) => setInput(e.target.value)} placeholder="Paste OpenRTB bid response JSON..." className="w-full h-96 bg-gray-950 text-gray-100 font-mono text-sm p-3 rounded border border-gray-700 focus:border-blue-500 focus:outline-none resize-none custom-scrollbar" spellCheck={false} />
+                <button onClick={validate} disabled={!input.trim()} className="mt-3 w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-2 px-4 rounded transition-colors">Validate</button>
+              </div>
+              <div className="bg-gray-900 rounded-lg p-4">
+                <h2 className="text-sm font-medium text-gray-300 mb-3">Validation Results</h2>
+                {!results && !parseError && <div className="text-gray-500 text-sm text-center py-12">Paste JSON and click Validate</div>}
+                {parseError && <StatusItem type="error" message={parseError} />}
+                {results && (
+                  <div className="space-y-2 overflow-y-auto max-h-[500px] pr-2 custom-scrollbar">
+                    <div className={`flex items-center gap-2 p-3 rounded ${results.valid ? 'bg-green-900/30' : 'bg-red-900/30'}`}>
+                      {results.valid ? <CheckCircle className="text-green-400" size={20} /> : <XCircle className="text-red-400" size={20} />}
+                      <span className={`font-medium ${results.valid ? 'text-green-400' : 'text-red-400'}`}>{results.valid ? 'Valid OpenRTB Response' : 'Invalid OpenRTB Response'}</span>
+                    </div>
+                    <Section title="Structure Validation" icon={FileJson}>
+                      {results.structure.errors.map((e, i) => <StatusItem key={i} type="error" message={e} />)}
+                      {results.structure.warnings.map((w, i) => <StatusItem key={i} type="warning" message={w} />)}
+                      {results.structure.errors.length === 0 && results.structure.warnings.length === 0 && <StatusItem type="success" message="All required fields present" />}
+                    </Section>
+                    {results.adm && (
+                      <Section title={`ADM Validation (${results.adm.type})`} icon={Code}>
+                        {results.adm.validation.version && <StatusItem type="info" message={`Version: ${results.adm.validation.version}`} />}
+                        {results.adm.validation.errors?.map((e, i) => <StatusItem key={i} type="error" message={e} />)}
+                        {results.adm.validation.warnings?.map((w, i) => <StatusItem key={i} type="warning" message={w} />)}
+                        {results.adm.validation.info?.map((info, i) => <StatusItem key={i} type="info" message={info} />)}
+                        {results.adm.validation.errors?.length === 0 && <StatusItem type="success" message={`${results.adm.type} valid`} />}
+                      </Section>
+                    )}
+                    <Section title="Unknown Fields" icon={AlertTriangle} defaultOpen={false}><UnknownFieldsDisplay unknownFields={results.unknownFields} /></Section>
+                    <Section title="Extensions (ext)" icon={Info} defaultOpen={false}><ExtensionDisplay extensions={results.extensions} /></Section>
+                    {results.adm && <Section title="Decoded ADM" icon={Code} defaultOpen={true}><AdmDisplay adm={results.adm} /></Section>}
+                  </div>
+                )}
+              </div>
+            </div>
+            {results?.adm && (
+              <div className="mt-4"><AdMediaPreview adm={results.adm} bidWidth={results.bidWidth} bidHeight={results.bidHeight} /></div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
